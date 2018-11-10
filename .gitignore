@@ -259,3 +259,7 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+/HackToTheFuture2019/TestMap.txt
+/HackToTheFuture2019/example_01_in.txt
+/HackToTheFuture2019/err.txt
+/HackToTheFuture2019/ans.txt
