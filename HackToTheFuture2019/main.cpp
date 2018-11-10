@@ -4,6 +4,7 @@
 #include <array>
 #include <string>
 #include <map>
+#include <set>
 #include <chrono>
 #include <random>
 
@@ -311,27 +312,28 @@ int range(int x1, int y1, int x2, int y2) {
 class Engine {
 private:
 
-	const Robot move(const Command& com, array<Robot, L>& step) {
+	const Robot move(const Command& com, array<Robot, L + 1>& step) {
 
 		Robot robot;
 
 		for (int i = 0; i < L; i++)
 		{
-			update(i, robot, com);
 			step[i] = robot;
+			update(i, robot, com);
 		}
+		step[L] = robot;
 
 		return robot;
 	}
 
-	const Robot move(const Robot& changes, const Command& com, array<Robot, L>& step) {
+	const Robot move(const set<Point>& cPos, const Command& com, array<Robot, L + 1>& step) {
 
-		Robot robot = step[L - 1];
+		Robot robot = step[L];
 
 		int i = 0;
 		for (; i < L; i++)
 		{
-			if (step[i].pos == changes.pos)
+			if (cPos.find(step[i].pos) != cPos.end())
 			{
 				robot = step[i];
 				break;
@@ -340,8 +342,10 @@ private:
 
 		for (; i < L; i++)
 		{
+			step[i] = robot;
 			update(i, robot, com);
 		}
+		step[L] = robot;
 
 		return robot;
 	}
@@ -425,7 +429,7 @@ private:
 		return score;
 	}
 
-	int updateScore(const Robot& changes, const Engine& engine, const Commands& coms) {
+	int updateScore(const set<Point>& changes, const Engine& engine, const Commands& coms) {
 
 		array<int, M*M> postion;
 		postion.fill(0);
@@ -455,11 +459,11 @@ private:
 		return score;
 	}
 
-	const array<array<Robot, L>, N>& getSteps() const { return steps; }
+	const array<array<Robot, L + 1>, N>& getSteps() const { return steps; }
 
 	Answer table;
 
-	array<array<Robot, L>, N> steps;
+	array<array<Robot, L + 1>, N> steps;
 
 	int score;
 
@@ -470,13 +474,19 @@ public:
 		score = initScore(coms);
 	}
 
-	Engine(const Robot& changes, const Engine& engine, const Commands& _coms) {
+	Engine(const vector<Robot>& changes, const Engine& engine, const Commands& _coms) {
+
+		set<Point> cPos;
 
 		table = engine.table;
 
-		table[changes.pos.y][changes.pos.x] = static_cast<char>(changes.d);
+		for (const auto change : changes)
+		{
+			table[change.pos.y][change.pos.x] = static_cast<char>(change.d);
+			cPos.insert(change.pos);
+		}
 
-		score = updateScore(changes, engine, _coms);
+		score = updateScore(cPos, engine, _coms);
 
 	}
 
@@ -535,51 +545,48 @@ public:
 		timer.start();
 
 		Data best;
-		Data now;
 
 		{
 			best.engine = Engine(table, coms);
 			best.score = best.engine.getScore();
-			now = best;
 		}
 
 		long long int loop = 0;
 		while (!timer)
 		{
-			const auto diff = timer.diff();
-
+			bool isChange = false;
 			for (int count = 0; count < 10; count++)
 			{
 				loop++;
 
-				Robot changes;
-				changes.pos.x = random.rand() % (M - 2) + 1;
-				changes.pos.y = random.rand() % (M - 2) + 1;
-				changes.d = random.rand() % 8;
+				const int Change = 2;
 
-				switch (changes.d)
+				vector<Robot> changes(Change);
+				for (int i = 0; i < Change; i++)
 				{
-				//case 0: changes.d = Panel::Wall; break;
-				case 1: changes.d = Panel::Double; break;
-				case 2: changes.d = Panel::Triple; break;
-				case 3: changes.d = Panel::Right; break;
-				case 4: changes.d = Panel::Left; break;
-				default: changes.d = Panel::None; break;
+					changes[i].pos.x = random.rand() % (M - 2) + 1;
+					changes[i].pos.y = random.rand() % (M - 2) + 1;
+					changes[i].d = random.rand() % 7;
+
+					switch (changes[i].d)
+					{
+						//case 0: changes[i].d = Panel::Wall; break;
+					case 1: changes[i].d = Panel::Double; break;
+					case 2: changes[i].d = Panel::Triple; break;
+					case 3: changes[i].d = Panel::Right; break;
+					case 4: changes[i].d = Panel::Left; break;
+					default: changes[i].d = Panel::None; break;
+					}
 				}
 
-				Engine nextEngine = Engine(changes, now.engine, coms);
+				Engine nextEngine = Engine(changes, best.engine, coms);
 
 				int score = nextEngine.getScore();
 
-				if (probability(best.score, score, diff))
+				if (best.score < score)
 				{
-					now.score = score;
-					now.engine = nextEngine;
-
-					if (best.score < now.score)
-					{
-						best = now;
-					}
+					best.score = score;
+					best.engine = nextEngine;
 				}
 
 			}
@@ -587,6 +594,7 @@ public:
 		}
 
 		cerr << "l:" << loop << endl;
+		cerr << "s:" << best.score << endl;
 
 		return best.engine.getTable();
 	}
@@ -636,6 +644,7 @@ int main() {
 	sw.stop();
 	cerr << "t:" << sw.toString_ms() << endl;
 	cerr << "s:" << Engine(ans, commands).getScore() << endl;
+	cerr << endl;
 
 	for (const auto& line : ans)
 	{
