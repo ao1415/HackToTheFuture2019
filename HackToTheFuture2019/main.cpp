@@ -10,7 +10,7 @@
 using namespace std;
 
 const int N = 500;
-const int M = 29 - 2;
+const int M = 29;
 const int L = 300;
 
 namespace Panel {
@@ -21,6 +21,8 @@ namespace Panel {
 	const char Triple = 'T';
 	const char Right = 'R';
 	const char Left = 'L';
+
+	const array<char, 6> Panel = { Double,Triple,Right,Left,None,Wall };
 
 }
 
@@ -309,81 +311,102 @@ int range(int x1, int y1, int x2, int y2) {
 class Engine {
 private:
 
-	const Point move(const Command& com) const {
+	const Robot move(const Command& com, array<Robot, L>& step) {
 
 		Robot robot;
 
 		for (int i = 0; i < L; i++)
 		{
-			switch (com[i])
+			update(i, robot, com);
+			step[i] = robot;
+		}
+
+		return robot;
+	}
+
+	const Robot move(const Robot& changes, const Command& com, array<Robot, L>& step) {
+
+		Robot robot = step[L - 1];
+
+		int i = 0;
+		for (; i < L; i++)
+		{
+			if (step[i].pos == changes.pos)
 			{
-			case 'S':
-			{
-				int step = 1;
-				if (table[robot.pos.y][robot.pos.x] == Panel::Double) step = 2;
-				else if (table[robot.pos.y][robot.pos.x] == Panel::Triple) step = 3;
-
-				for (int c = 0; c < step; c++)
-				{
-					const Point next = robot.pos + Dire[robot.d];
-
-					if (!next.inside() || table[next.y][next.x] == Panel::Wall)
-						break;
-
-					robot.pos = next;
-				}
-			}
-
-			break;
-			case 'L':
-
-				switch (table[robot.pos.y][robot.pos.x])
-				{
-				case Panel::Double: robot.d = (robot.d + 4 - 2) % 4; break;
-				case Panel::Triple: robot.d = (robot.d + 4 - 3) % 4; break;
-				case Panel::Right: robot.d = (robot.d + 4 + 1) % 4; break;
-				default: robot.d = (robot.d + 4 - 1) % 4; break;
-				}
-
-				break;
-			case 'R':
-
-				switch (table[robot.pos.y][robot.pos.x])
-				{
-				case Panel::Double: robot.d = (robot.d + 4 + 2) % 4; break;
-				case Panel::Triple: robot.d = (robot.d + 4 + 3) % 4; break;
-				case Panel::Left: robot.d = (robot.d + 4 - 1) % 4; break;
-				default: robot.d = (robot.d + 4 + 1) % 4; break;
-				}
-
-				break;
-			default:
+				robot = step[i];
 				break;
 			}
 		}
 
-		return robot.pos;
+		for (; i < L; i++)
+		{
+			update(i, robot, com);
+		}
+
+		return robot;
 	}
 
-	const Answer& table;
-	const Commands& coms;
+	void update(int turn, Robot& robot, const Command& com) {
 
-public:
+		switch (com[turn])
+		{
+		case 'S':
+		{
+			int step = 1;
+			switch (table[robot.pos.y][robot.pos.x])
+			{
+			case Panel::Double: step = 2; break;
+			case Panel::Triple: step = 3; break;
+			default:
+				break;
+			}
 
-	Engine(const Answer& _table, const Commands& _coms) : table(_table), coms(_coms) {
+			for (int c = 0; c < step; c++)
+			{
+				const Point next = robot.pos + Dire[robot.d];
 
+				if (table[next.y][next.x] == Panel::Wall)
+					break;
+
+				robot.pos = next;
+			}
+		}
+		break;
+		case 'L':
+
+			switch (table[robot.pos.y][robot.pos.x])
+			{
+			case Panel::Double: robot.d = (robot.d + 4 - 2) % 4; break;
+			case Panel::Triple: robot.d = (robot.d + 4 - 3) % 4; break;
+			case Panel::Right: robot.d = (robot.d + 4 + 1) % 4; break;
+			default: robot.d = (robot.d + 4 - 1) % 4; break;
+			}
+			break;
+		case 'R':
+
+			switch (table[robot.pos.y][robot.pos.x])
+			{
+			case Panel::Double: robot.d = (robot.d + 4 + 2) % 4; break;
+			case Panel::Triple: robot.d = (robot.d + 4 + 3) % 4; break;
+			case Panel::Left: robot.d = (robot.d + 4 - 1) % 4; break;
+			default: robot.d = (robot.d + 4 + 1) % 4; break;
+			}
+			break;
+		default:
+			break;
+		}
 	}
 
-	int getScore() const {
+	int initScore(const Commands& coms) {
 
 		array<int, M*M> postion;
 		postion.fill(0);
 
 		for (int i = 0; i < N; i++)
 		{
-			const auto pos = move(coms[i]);
+			const auto robot = move(coms[i], steps[i]);
 
-			postion[pos.y*M + pos.x]++;
+			postion[robot.pos.y*M + robot.pos.x]++;
 		}
 
 		int score = 0;
@@ -402,15 +425,96 @@ public:
 		return score;
 	}
 
+	int updateScore(const Robot& changes, const Engine& engine, const Commands& coms) {
+
+		array<int, M*M> postion;
+		postion.fill(0);
+
+		steps = engine.getSteps();
+
+		for (int i = 0; i < N; i++)
+		{
+			const auto robot = move(changes, coms[i], steps[i]);
+
+			postion[robot.pos.y*M + robot.pos.x]++;
+		}
+
+		int score = 0;
+		for (const auto& c : postion)
+		{
+			switch (c)
+			{
+			case 1: score += 10; break;
+			case 2: score += 3; break;
+			case 3: score += 1; break;
+			default:
+				break;
+			}
+		}
+
+		return score;
+	}
+
+	const array<array<Robot, L>, N>& getSteps() const { return steps; }
+
+	Answer table;
+
+	array<array<Robot, L>, N> steps;
+
+	int score;
+
+public:
+
+	Engine() {}
+	Engine(const Answer& _table, const Commands& coms) : table(_table) {
+		score = initScore(coms);
+	}
+
+	Engine(const Robot& changes, const Engine& engine, const Commands& _coms) {
+
+		table = engine.table;
+
+		table[changes.pos.y][changes.pos.x] = static_cast<char>(changes.d);
+
+		score = updateScore(changes, engine, _coms);
+
+	}
+
+	int getScore() const { return score; }
+	Answer getTable() const { return table; }
+
 };
 
 class AI {
 private:
 
+	const double TempStart = 5000.0;
+	const double TempEnd = 1.0;
+	const int Time = 2980;
+	const double TempDiff = (TempStart - TempEnd) / Time;
+
+	bool probability(const double& base, const double& next, const long long& t) {
+
+		const double diff = next - base;
+
+		if (diff > 0) return true;
+
+		const double temp = TempStart - TempDiff * t;
+
+		const double p = exp(diff / temp) * 4294967295.0;
+
+		return p > random.rand();
+	}
+
 	XorShift random;
 
 	Answer table;
 	const Commands& coms;
+
+	struct Data {
+		int score;
+		Engine engine;
+	};
 
 public:
 
@@ -426,60 +530,65 @@ public:
 		//ŽÀs‘¬“x:–ñ100us
 		//–ñ30000‰ñ
 
-		Timer timer(chrono::milliseconds(2800));
+		Timer timer(chrono::milliseconds(this->Time));
 
 		timer.start();
 
-		pair<int, Answer> best;
+		Data best;
+		Data now;
 
 		{
-			best.first = Engine(table, coms).getScore();
-			best.second = table;
+			best.engine = Engine(table, coms);
+			best.score = best.engine.getScore();
+			now = best;
 		}
 
+		long long int loop = 0;
 		while (!timer)
 		{
-			const int Change = random.rand() % 8;
+			const auto diff = timer.diff();
 
-			bool isChange = false;
-			for (int count = 0; count < 100; count++)
+			for (int count = 0; count < 10; count++)
 			{
-				Answer next = table;
-				for (int i = 0; i < Change; i++)
-				{
-					int x = random.rand() % M;
-					int y = random.rand() % M;
-					int p = random.rand() % 8;
+				loop++;
 
-					switch (p)
+				Robot changes;
+				changes.pos.x = random.rand() % (M - 2) + 1;
+				changes.pos.y = random.rand() % (M - 2) + 1;
+				changes.d = random.rand() % 8;
+
+				switch (changes.d)
+				{
+				//case 0: changes.d = Panel::Wall; break;
+				case 1: changes.d = Panel::Double; break;
+				case 2: changes.d = Panel::Triple; break;
+				case 3: changes.d = Panel::Right; break;
+				case 4: changes.d = Panel::Left; break;
+				default: changes.d = Panel::None; break;
+				}
+
+				Engine nextEngine = Engine(changes, now.engine, coms);
+
+				int score = nextEngine.getScore();
+
+				if (probability(best.score, score, diff))
+				{
+					now.score = score;
+					now.engine = nextEngine;
+
+					if (best.score < now.score)
 					{
-					case 0: next[y][x] = Panel::Wall; break;
-					case 1: next[y][x] = Panel::Double; break;
-					case 2: next[y][x] = Panel::Triple; break;
-					case 3: next[y][x] = Panel::Right; break;
-					case 4: next[y][x] = Panel::Left; break;
-					default: next[y][x] = Panel::None; break;
+						best = now;
 					}
 				}
 
-				int score = Engine(next, coms).getScore();
-
-				if (best.first < score)
-				{
-					best.first = score;
-					best.second = next;
-					isChange = true;
-				}
-
-			}
-			if (isChange)
-			{
-				table = best.second;
 			}
 
 		}
 
-		return table;
+		cerr << "l:" << loop << endl;
+
+		return best.engine.getTable();
 	}
 
 };
@@ -509,6 +618,14 @@ int main() {
 	Answer table;
 	for (auto& line : table) line.fill(Panel::None);
 
+	for (int i = 0; i < M; i++)
+	{
+		table[0][i] = Panel::Wall;
+		table[M - 1][i] = Panel::Wall;
+		table[i][0] = Panel::Wall;
+		table[i][M - 1] = Panel::Wall;
+	}
+
 	AI ai(move(table), commands);
 
 	Stopwatch sw;
@@ -520,14 +637,11 @@ int main() {
 	cerr << "t:" << sw.toString_ms() << endl;
 	cerr << "s:" << Engine(ans, commands).getScore() << endl;
 
-	cout << "#############################" << endl;
 	for (const auto& line : ans)
 	{
-		cout << "#";
 		for (const auto& cell : line) cout << cell;
-		cout << "#" << endl;
+		cout << endl;
 	}
-	cout << "#############################" << endl;
 
 	return 0;
 }
