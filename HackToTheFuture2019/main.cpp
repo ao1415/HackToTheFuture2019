@@ -327,14 +327,14 @@ private:
 		return robot;
 	}
 
-	const Robot move(const set<Point>& cPos, const Command& com, array<Robot, L + 1>& step) {
+	const Robot move(const Answer& cPos, const Command& com, array<Robot, L + 1>& step) {
 
 		Robot robot = step[L];
 
 		int i = 0;
 		for (; i < L; i++)
 		{
-			if (cPos.find(step[i].pos) != cPos.end())
+			if (cPos[step[i].pos.y][step[i].pos.x] != 0)
 			{
 				robot = step[i];
 				break;
@@ -437,7 +437,7 @@ private:
 		return score;
 	}
 
-	int updateScore(const set<Point>& changes, const Engine& engine, const Commands& coms) {
+	int updateScore(const Answer& changes, const Engine& engine, const Commands& coms) {
 
 		array<int, M*M> postion;
 		postion.fill(0);
@@ -467,6 +467,8 @@ private:
 		return score;
 	}
 
+	const array<array<Robot, L + 1>, N>& getSteps() const { return steps; }
+
 	Answer table;
 
 	array<array<Robot, L + 1>, N> steps;
@@ -482,14 +484,17 @@ public:
 
 	Engine(const vector<Robot>& changes, const Engine& engine, const Commands& _coms) {
 
-		set<Point> cPos;
+		Answer cPos;
+		for (auto& line : cPos) line.fill(0);
 
 		table = engine.table;
+
 
 		for (const auto change : changes)
 		{
 			table[change.pos.y][change.pos.x] = static_cast<char>(change.d);
-			cPos.insert(change.pos);
+
+			cPos[change.pos.y][change.pos.x] = 1;
 		}
 
 		score = updateScore(cPos, engine, _coms);
@@ -498,8 +503,6 @@ public:
 
 	int getScore() const { return score; }
 	Answer getTable() const { return table; }
-
-	const array<array<Robot, L + 1>, N>& getSteps() const { return steps; }
 
 };
 
@@ -569,14 +572,11 @@ public:
 
 				const int Change = 1;
 
-				const auto& posList = best.engine.getSteps();
-
 				vector<Robot> changes(Change);
 				for (int i = 0; i < Change; i++)
 				{
-					//changes[i].pos.x = random.rand() % (M - 2) + 1;
-					//changes[i].pos.y = random.rand() % (M - 2) + 1;
-					changes[i].pos = posList[random.rand() % N][random.rand() % L].pos;
+					changes[i].pos.x = random.rand() % (M - 2) + 1;
+					changes[i].pos.y = random.rand() % (M - 2) + 1;
 					changes[i].d = random.rand() % 2;
 
 					switch (changes[i].d)
