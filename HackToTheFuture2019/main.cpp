@@ -312,14 +312,14 @@ private:
 		return robot;
 	}
 
-	const Robot move(const Answer& cPos, const Command& com, array<Robot, L + 1>& step) {
+	const Robot move(const Point& changePos, const Command& com, array<Robot, L + 1>& step) {
 
 		Robot robot = step[L];
 
 		int i = 0;
 		for (; i < L; i++)
 		{
-			if (cPos[step[i].pos.y][step[i].pos.x] != 0)
+			if (changePos == step[i].pos)
 			{
 				robot = step[i];
 				break;
@@ -401,7 +401,7 @@ private:
 		return score;
 	}
 
-	int updateScore(const Answer& changes, const Engine& engine, const Commands& coms) {
+	int updateScore(const Point& changePos, const Engine& engine, const Commands& coms) {
 
 		array<int, M*M> postion;
 		postion.fill(0);
@@ -410,7 +410,7 @@ private:
 
 		for (int i = 0; i < N; i++)
 		{
-			const auto robot = move(changes, coms[i], steps[i]);
+			const auto robot = move(changePos, coms[i], steps[i]);
 
 			postion[robot.pos.y*M + robot.pos.x]++;
 		}
@@ -448,15 +448,11 @@ public:
 
 	Engine(const Robot& changes, const Engine& engine, const Commands& _coms) {
 
-		Answer cPos;
-		for (auto& line : cPos) line.fill(0);
-
 		table = engine.table;
 
 		table[changes.pos.y][changes.pos.x] = static_cast<char>(changes.d);
-		cPos[changes.pos.y][changes.pos.x] = 1;
 
-		score = updateScore(cPos, engine, _coms);
+		score = updateScore(changes.pos, engine, _coms);
 
 	}
 
@@ -492,7 +488,7 @@ public:
 		//é¿çsë¨ìx:ñÒ100us
 		//ñÒ30000âÒ
 
-		Timer timer(chrono::milliseconds(2985));
+		Timer timer(chrono::milliseconds(2990));
 
 		timer.start();
 
@@ -507,7 +503,7 @@ public:
 		while (!timer)
 		{
 
-			for (int count = 0; count < 5; count++)
+			//for (int count = 0; count < 5; count++)
 			{
 				loop++;
 
