@@ -8,8 +8,6 @@
 #include <chrono>
 #include <random>
 #include <queue>
-#include <cmath>
-#include <algorithm>
 
 using namespace std;
 
@@ -34,13 +32,6 @@ int readInt() {
 	int v;
 	cin >> v;
 	return v;
-}
-
-const inline bool inside(const int& v) {
-	return (0 <= v && v < M);
-}
-const inline bool inside(const int& x, const int& y) {
-	return (inside(x) && inside(y));
 }
 
 class Stopwatch {
@@ -254,7 +245,7 @@ private:
 
 struct XorShift {
 	unsigned int x;
-	XorShift() : x(2463534242U) {}
+	XorShift(unsigned int seed = 2463534242U) : x(seed) {}
 	unsigned int rand() {
 		x ^= (x << 13);
 		x ^= (x >> 17);
@@ -275,7 +266,6 @@ struct Point {
 	int x = -1;
 	int y = -1;
 
-	const bool inside() const { return ::inside(x, y); }
 	const string toString() const { return to_string(x) + " " + to_string(y); }
 
 	Point operator+(const Point& o) const { return Point(x + o.x, y + o.y); }
@@ -301,16 +291,9 @@ struct Robot {
 	int d = 0;
 };
 
-using Answer = array<array<char, M>, M>;
-using Command = array<char, L>;
+using Answer = array<array<int, M>, M>;
+using Command = array<int, L>;
 using Commands = array<Command, N>;
-
-int range(Point p1, Point p2) {
-	return abs(p1.x - p2.x) + abs(p1.y - p2.y);
-}
-int range(int x1, int y1, int x2, int y2) {
-	return abs(x1 - x2) + abs(y1 - y2);
-}
 
 class Engine {
 private:
@@ -336,10 +319,9 @@ private:
 		int i = 0;
 		for (; i < L; i++)
 		{
-			const auto& s = step[i];
-			if (cPos[s.pos.y][s.pos.x] != 0)
+			if (cPos[step[i].pos.y][step[i].pos.x] != 0)
 			{
-				robot = s;
+				robot = step[i];
 				break;
 			}
 		}
@@ -360,31 +342,10 @@ private:
 		{
 		case 'S':
 		{
-			/*
-			int step = 1;
-			switch (table[robot.pos.y][robot.pos.x])
-			{
-			case Panel::Double: step = 2; break;
-			case Panel::Triple: step = 3; break;
-			default:
-				break;
-			}
-
-			for (int c = 0; c < step; c++)
-			{
-				const Point next = robot.pos + Dire[robot.d];
-
-				if (table[next.y][next.x] == Panel::Wall)
-					break;
-
-				robot.pos = next;
-			}
-			/*/
 			const Point next = robot.pos + Dire[robot.d];
 
 			if (table[next.y][next.x] != Panel::Wall)
 				robot.pos = next;
-			//*/
 		}
 		break;
 		case 'L':
@@ -470,6 +431,8 @@ private:
 		return score;
 	}
 
+	const array<array<Robot, L + 1>, N>& getSteps() const { return steps; }
+
 	Answer table;
 
 	array<array<Robot, L + 1>, N> steps;
@@ -483,52 +446,27 @@ public:
 		score = initScore(coms);
 	}
 
-	Engine(const vector<Robot>& changes, const Engine& engine, const Commands& _coms) {
+	Engine(const Robot& changes, const Engine& engine, const Commands& _coms) {
 
 		Answer cPos;
 		for (auto& line : cPos) line.fill(0);
 
 		table = engine.table;
 
-
-		for (const auto change : changes)
-		{
-			table[change.pos.y][change.pos.x] = static_cast<char>(change.d);
-
-			cPos[change.pos.y][change.pos.x] = 1;
-		}
+		table[changes.pos.y][changes.pos.x] = static_cast<char>(changes.d);
+		cPos[changes.pos.y][changes.pos.x] = 1;
 
 		score = updateScore(cPos, engine, _coms);
 
 	}
 
 	int getScore() const { return score; }
-	const Answer getTable() const { return table; }
-
-	const array<array<Robot, L + 1>, N>& getSteps() const { return steps; }
+	Answer getTable() const { return table; }
 
 };
 
 class AI {
 private:
-
-	const double TempStart = 1.0;
-	const double TempEnd = 0.001;
-	const int Time = 2985;
-	const double TempDiff = (TempStart - TempEnd) / Time;
-
-	bool probability(const double& base, const double& next, const long long& t) {
-
-		const double diff = next - base;
-
-		if (diff > 0) return true;
-
-		const double temp = TempStart - TempDiff * t;
-
-		const double p = exp(diff / temp) * 4294967295.0;
-
-		return p > random.rand();
-	}
 
 	XorShift random;
 
@@ -554,72 +492,47 @@ public:
 		//ŽÀs‘¬“x:–ñ100us
 		//–ñ30000‰ñ
 
-		Timer timer(chrono::milliseconds(this->Time));
+		Timer timer(chrono::milliseconds(2985));
 
 		timer.start();
 
 		Data best;
-		Data now;
 
 		{
 			best.engine = Engine(table, coms);
 			best.score = best.engine.getScore();
-			now = best;
 		}
 
 		long long int loop = 0;
 		while (!timer)
 		{
-			const auto diff = timer.diff();
 
-			for (int count = 0; count < 3; count++)
+			for (int count = 0; count < 5; count++)
 			{
 				loop++;
 
 				const int Change = 1;
-				const auto& posList = best.engine.getSteps();
 
-				vector<Robot> changes(Change);
-				for (int i = 0; i < Change; i++)
+				Robot changes;
+				changes.pos.x = random.rand() % (M - 2) + 1;
+				changes.pos.y = random.rand() % (M - 2) + 1;
+				changes.d = random.rand() % 2;
+
+				switch (changes.d)
 				{
-					//changes[i].pos.x = random.rand() % (M - 2) + 1;
-					//changes[i].pos.y = random.rand() % (M - 2) + 1;
-					changes[i].pos = posList[random.rand() % N][random.rand() % L].pos;
-
-					/*
-					changes[i].d = random.rand() % 64;
-					if (changes[i].d < 31) changes[i].d = Panel::Right;
-					else if (changes[i].d < 62) changes[i].d = Panel::Left;
-					else if (changes[i].d < 63) changes[i].d = Panel::Double;
-					else if (changes[i].d < 64) changes[i].d = Panel::Triple;
-
-					/*/
-					changes[i].d = random.rand() % 2;
-					switch (changes[i].d)
-					{
-						//case 0: changes[i].d = Panel::Wall; break;
-						//case 0: changes[i].d = Panel::Double; break;
-						//case 1: changes[i].d = Panel::Triple; break;
-					case 0: changes[i].d = Panel::Right; break;
-					case 1: changes[i].d = Panel::Left; break;
-					default: changes[i].d = Panel::None; break;
-					}
-					//*/
+				case 0: changes.d = Panel::Right; break;
+				case 1: changes.d = Panel::Left; break;
+				default: changes.d = Panel::None; break;
 				}
 
 				Engine nextEngine = Engine(changes, best.engine, coms);
 
 				int score = nextEngine.getScore();
 
-				if (probability(now.score, score, diff))
+				if (best.score < score)
 				{
-					now.score = score;
-					now.engine = nextEngine;
-
-					if (best.score < now.score)
-					{
-						best = now;
-					}
+					best.score = score;
+					best.engine = nextEngine;
 				}
 
 			}
@@ -666,7 +579,6 @@ int main() {
 		table[i][0] = Panel::Wall;
 		table[i][M - 1] = Panel::Wall;
 	}
-	table[Center.y][Center.x] = Panel::Triple;
 
 	AI ai(move(table), commands);
 
@@ -677,12 +589,12 @@ int main() {
 
 	sw.stop();
 	cerr << "t:" << sw.toString_ms() << endl;
-	cerr << "s:" << Engine(ans, commands).getScore() << endl;
+	//cerr << "s:" << Engine(ans, commands).getScore() << endl;
 	cerr << endl;
 
 	for (const auto& line : ans)
 	{
-		for (const auto& cell : line) cout << cell;
+		for (const auto& cell : line) cout << (char)cell;
 		cout << endl;
 	}
 
