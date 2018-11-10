@@ -8,6 +8,8 @@
 #include <chrono>
 #include <random>
 #include <queue>
+#include <cmath>
+#include <algorithm>
 
 using namespace std;
 
@@ -334,9 +336,10 @@ private:
 		int i = 0;
 		for (; i < L; i++)
 		{
-			if (cPos[step[i].pos.y][step[i].pos.x] != 0)
+			const auto& s = step[i];
+			if (cPos[s.pos.y][s.pos.x] != 0)
 			{
-				robot = step[i];
+				robot = s;
 				break;
 			}
 		}
@@ -467,8 +470,6 @@ private:
 		return score;
 	}
 
-	const array<array<Robot, L + 1>, N>& getSteps() const { return steps; }
-
 	Answer table;
 
 	array<array<Robot, L + 1>, N> steps;
@@ -502,16 +503,18 @@ public:
 	}
 
 	int getScore() const { return score; }
-	Answer getTable() const { return table; }
+	const Answer getTable() const { return table; }
+
+	const array<array<Robot, L + 1>, N>& getSteps() const { return steps; }
 
 };
 
 class AI {
 private:
 
-	const double TempStart = 5000.0;
-	const double TempEnd = 1.0;
-	const int Time = 2980;
+	const double TempStart = 1.0;
+	const double TempEnd = 0.001;
+	const int Time = 2985;
 	const double TempDiff = (TempStart - TempEnd) / Time;
 
 	bool probability(const double& base, const double& next, const long long& t) {
@@ -556,48 +559,67 @@ public:
 		timer.start();
 
 		Data best;
+		Data now;
 
 		{
 			best.engine = Engine(table, coms);
 			best.score = best.engine.getScore();
+			now = best;
 		}
 
 		long long int loop = 0;
 		while (!timer)
 		{
+			const auto diff = timer.diff();
 
-			for (int count = 0; count < 10; count++)
+			for (int count = 0; count < 3; count++)
 			{
 				loop++;
 
 				const int Change = 1;
+				const auto& posList = best.engine.getSteps();
 
 				vector<Robot> changes(Change);
 				for (int i = 0; i < Change; i++)
 				{
-					changes[i].pos.x = random.rand() % (M - 2) + 1;
-					changes[i].pos.y = random.rand() % (M - 2) + 1;
-					changes[i].d = random.rand() % 2;
+					//changes[i].pos.x = random.rand() % (M - 2) + 1;
+					//changes[i].pos.y = random.rand() % (M - 2) + 1;
+					changes[i].pos = posList[random.rand() % N][random.rand() % L].pos;
 
+					/*
+					changes[i].d = random.rand() % 64;
+					if (changes[i].d < 31) changes[i].d = Panel::Right;
+					else if (changes[i].d < 62) changes[i].d = Panel::Left;
+					else if (changes[i].d < 63) changes[i].d = Panel::Double;
+					else if (changes[i].d < 64) changes[i].d = Panel::Triple;
+
+					/*/
+					changes[i].d = random.rand() % 2;
 					switch (changes[i].d)
 					{
 						//case 0: changes[i].d = Panel::Wall; break;
-					//case 1: changes[i].d = Panel::Double; break;
-					//case 2: changes[i].d = Panel::Triple; break;
+						//case 0: changes[i].d = Panel::Double; break;
+						//case 1: changes[i].d = Panel::Triple; break;
 					case 0: changes[i].d = Panel::Right; break;
 					case 1: changes[i].d = Panel::Left; break;
 					default: changes[i].d = Panel::None; break;
 					}
+					//*/
 				}
 
 				Engine nextEngine = Engine(changes, best.engine, coms);
 
 				int score = nextEngine.getScore();
 
-				if (best.score < score)
+				if (probability(now.score, score, diff))
 				{
-					best.score = score;
-					best.engine = nextEngine;
+					now.score = score;
+					now.engine = nextEngine;
+
+					if (best.score < now.score)
+					{
+						best = now;
+					}
 				}
 
 			}
@@ -644,6 +666,7 @@ int main() {
 		table[i][0] = Panel::Wall;
 		table[i][M - 1] = Panel::Wall;
 	}
+	table[Center.y][Center.x] = Panel::Triple;
 
 	AI ai(move(table), commands);
 
