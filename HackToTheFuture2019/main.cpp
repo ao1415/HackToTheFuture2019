@@ -7,6 +7,7 @@
 #include <set>
 #include <chrono>
 #include <random>
+#include <queue>
 
 using namespace std;
 
@@ -356,6 +357,7 @@ private:
 		{
 		case 'S':
 		{
+			/*
 			int step = 1;
 			switch (table[robot.pos.y][robot.pos.x])
 			{
@@ -374,6 +376,12 @@ private:
 
 				robot.pos = next;
 			}
+			/*/
+			const Point next = robot.pos + Dire[robot.d];
+
+			if (table[next.y][next.x] != Panel::Wall)
+				robot.pos = next;
+			//*/
 		}
 		break;
 		case 'L':
@@ -554,7 +562,7 @@ public:
 		long long int loop = 0;
 		while (!timer)
 		{
-			bool isChange = false;
+
 			for (int count = 0; count < 10; count++)
 			{
 				loop++;
@@ -566,13 +574,13 @@ public:
 				{
 					changes[i].pos.x = random.rand() % (M - 2) + 1;
 					changes[i].pos.y = random.rand() % (M - 2) + 1;
-					changes[i].d = random.rand() % 7;
+					changes[i].d = random.rand() % 4 + 3;
 
 					switch (changes[i].d)
 					{
 						//case 0: changes[i].d = Panel::Wall; break;
-					case 1: changes[i].d = Panel::Double; break;
-					case 2: changes[i].d = Panel::Triple; break;
+					//case 1: changes[i].d = Panel::Double; break;
+					//case 2: changes[i].d = Panel::Triple; break;
 					case 3: changes[i].d = Panel::Right; break;
 					case 4: changes[i].d = Panel::Left; break;
 					default: changes[i].d = Panel::None; break;
